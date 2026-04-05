@@ -1,0 +1,146 @@
+{
+  "RACI": {
+    "name": "RACI",
+    "description": "Responsible, Accountable, Consulted, Informed",
+    "roles": [
+      { "abbr": "R", "label": "Responsible" },
+      { "abbr": "A", "label": "Accountable" },
+      { "abbr": "C", "label": "Consulted" },
+      { "abbr": "I", "label": "Informed" }
+    ],
+    "options": [
+      "R", "A", "C", "I",
+      "R/A", "R/C", "R/I",
+      "A/C", "A/I",
+      "C/I"
+    ]
+  },
+  "DACI": {
+    "name": "DACI",
+    "description": "Driver, Approver, Contributor, Informed",
+    "roles": [
+      { "abbr": "D", "label": "Driver" },
+      { "abbr": "A", "label": "Approver" },
+      { "abbr": "C", "label": "Contributor" },
+      { "abbr": "I", "label": "Informed" }
+    ],
+    "options": [
+      "D", "A", "C", "I",
+      "D/A", "D/C", "D/I",
+      "A/C", "A/I",
+      "C/I"
+    ]
+  },
+  "PARIS": {
+    "name": "PARIS",
+    "description": "Participant, Accountable, Review required, Input required, Sign-off required",
+    "roles": [
+      { "abbr": "P", "label": "Participant" },
+      { "abbr": "A", "label": "Accountable" },
+      { "abbr": "R", "label": "Review required" },
+      { "abbr": "I", "label": "Input required" },
+      { "abbr": "S", "label": "Sign-off required" }
+    ],
+    "options": [
+      "P", "A", "R", "I", "S",
+      "P/A", "P/R", "P/I", "P/S",
+      "A/R", "A/I", "A/S",
+      "R/I", "R/S",
+      "I/S"
+    ]
+  },
+  "RACI+F": {
+    "name": "RACI + F",
+    "description": "RACI extended with Facilitator — used in Scrum projects",
+    "roles": [
+      { "abbr": "R", "label": "Responsible" },
+      { "abbr": "A", "label": "Accountable" },
+      { "abbr": "C", "label": "Consulted" },
+      { "abbr": "I", "label": "Informed" },
+      { "abbr": "F", "label": "Facilitator" }
+    ],
+    "options": [
+      "R", "A", "C", "I", "F",
+      "R/A", "R/C", "R/I", "R/F",
+      "A/C", "A/I", "A/F",
+      "C/I", "C/F",
+      "I/F"
+    ]
+  },
+  "RASCI": {
+    "name": "RASCI / RACIS / RASIC / RASI",
+    "description": "RACI extended with Support",
+    "roles": [
+      { "abbr": "R", "label": "Responsible" },
+      { "abbr": "A", "label": "Accountable" },
+      { "abbr": "S", "label": "Support" },
+      { "abbr": "C", "label": "Consulted" },
+      { "abbr": "I", "label": "Informed" }
+    ],
+    "options": [
+      "R", "A", "S", "C", "I",
+      "R/A", "R/S", "R/C", "R/I",
+      "A/S", "A/C", "A/I",
+      "S/C", "S/I",
+      "C/I"
+    ]
+  },
+  "RACIO": {
+    "name": "RACIO / CAIRO",
+    "description": "RACI extended with Omitted (Out-of-the-loop)",
+    "roles": [
+      { "abbr": "R", "label": "Responsible" },
+      { "abbr": "A", "label": "Accountable" },
+      { "abbr": "C", "label": "Consulted" },
+      { "abbr": "I", "label": "Informed" },
+      { "abbr": "O", "label": "Omitted" }
+    ],
+    "options": [
+      "R", "A", "C", "I", "O",
+      "R/A", "R/C", "R/I", "R/O",
+      "A/C", "A/I", "A/O",
+      "C/I", "C/O",
+      "I/O"
+    ]
+  },
+  "RACIQ": {
+    "name": "RACIQ",
+    "description": "RACI extended with Quality review",
+    "roles": [
+      { "abbr": "R", "label": "Responsible" },
+      { "abbr": "A", "label": "Accountable" },
+      { "abbr": "C", "label": "Consulted" },
+      { "abbr": "I", "label": "Informed" },
+      { "abbr": "Q", "label": "Quality review" }
+    ],
+    "options": [
+      "R", "A", "C", "I", "Q",
+      "R/A", "R/C", "R/I", "R/Q",
+      "A/C", "A/I", "A/Q",
+      "C/I", "C/Q",
+      "I/Q"
+    ]
+  },
+  "RACI-VSL": {
+    "name": "RACI-VSL",
+    "description": "RACI extended with Verifier, Signatory, and Lead",
+    "roles": [
+      { "abbr": "R", "label": "Responsible" },
+      { "abbr": "A", "label": "Accountable" },
+      { "abbr": "C", "label": "Consulted" },
+      { "abbr": "I", "label": "Informed" },
+      { "abbr": "V", "label": "Verifier" },
+      { "abbr": "S", "label": "Signatory" },
+      { "abbr": "L", "label": "Lead" }
+    ],
+    "options": [
+      "R", "A", "C", "I", "V", "S", "L",
+      "R/A", "R/C", "R/I", "R/V", "R/S", "R/L",
+      "A/C", "A/I", "A/V", "A/S", "A/L",
+      "C/I", "C/V", "C/S", "C/L",
+      "I/V", "I/S", "I/L",
+      "V/S", "V/L",
+      "S/L"
+    ]
+  }
+}

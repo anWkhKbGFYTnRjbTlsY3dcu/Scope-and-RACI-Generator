@@ -1,0 +1,20 @@
+{
+  "project_statement": {
+    "project_purpose": "Why is the event being planned?",
+    "project_description": "Describe the event",
+    "desired_results": "E.g., fundraising goals, community support",
+    "exclusions": "E.g., what isn't part of this project?",
+    "communication_needs": "E.g., What groups will you communicate with and how often?",
+    "acceptance_criteria": "E.g., Do you need board approval on the plan? Budget approval?",
+    "constraints": "E.g., Are there other city-wide events during same time period?",
+    "approvals": "E.g., Who is the final approver for the project? Who else needs to be involved in approvals?",
+    "project_scope": "Define the boundaries: What specific activities, deliverables, and work are included?",
+    "timeline_and_milestones": "E.g., Start date, end date, major deadlines (vendor registration, ticket sales launch, setup day, event day)",
+    "budget_and_resources": "E.g., Total budget amount, funding sources, resource needs (staff, volunteers, equipment, venue costs)",
+    "stakeholders": "E.g., List key parties: sponsors, participants, community partners, vendors, attendees, local government",
+    "roles_and_responsibilities": "E.g., Who is the project manager? Who leads marketing, logistics, volunteer coordination, sponsorships?",
+    "deliverables": "E.g., What must be produced? (Event plan, marketing materials, vendor contracts, post-event report)",
+    "success_metrics": "E.g., How will you measure success? (Attendance numbers, funds raised, satisfaction scores, media mentions)",
+    "risks_and_assumptions": "E.g., What could go wrong? (Weather, low attendance) What are you assuming? (Permits approved, venue available)"
+  }
+}

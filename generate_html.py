@@ -1,0 +1,1599 @@
+import json
+from pathlib import Path
+
+INPUT_FILE = Path("lib/input_fields.json")
+MATRIX_TYPES_FILE = Path("lib/matrix_types.json")
+OUTPUT_FILE = Path("project_scope_form.html")
+
+FIELD_LABELS = {
+    "project_purpose": "Project Purpose",
+    "project_description": "Project Description",
+    "desired_results": "Desired Results",
+    "exclusions": "Exclusions",
+    "communication_needs": "Communication Needs",
+    "acceptance_criteria": "Acceptance Criteria",
+    "constraints": "Constraints",
+    "approvals": "Approvals",
+    "project_scope": "Project Scope",
+    "timeline_and_milestones": "Timeline & Milestones",
+    "budget_and_resources": "Budget & Resources",
+    "stakeholders": "Stakeholders",
+    "roles_and_responsibilities": "Roles & Responsibilities",
+    "deliverables": "Deliverables",
+    "success_metrics": "Success Metrics",
+    "risks_and_assumptions": "Risks & Assumptions",
+}
+
+def build_html(fields: dict, matrix_types: dict) -> str:
+    form_fields_html = ""
+    toc_items_html = ""
+    field_meta = []  # [{key, label}, ...]
+    for key, placeholder in fields.items():
+        label = FIELD_LABELS.get(key, key.replace("_", " ").title())
+        field_meta.append({"key": key, "label": label})
+        toc_items_html += f'<li><a href="#{key}-row" class="toc-link" id="toc-{key}"><span class="toc-check" id="check-{key}"></span>{label}</a></li>\n        '
+        form_fields_html += f"""
+        <tr class="field-row" id="{key}-row">
+            <td class="field-label">
+                <label for="{key}">{label}</label>
+            </td>
+            <td class="field-input">
+                <div class="input-row">
+                    <textarea id="{key}" name="{key}" placeholder="{placeholder}" rows="5" oninput="onFieldInput('{key}')"></textarea>
+                    <div class="field-actions">
+                        <button type="button" class="btn-mic" onclick="toggleSpeech(this, '{key}')" data-mic-field="{key}" aria-label="Speech to text">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 1a4 4 0 0 1 4 4v7a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v7a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm7 8a1 1 0 0 1 1 1 8 8 0 0 1-7 7.938V22h2a1 1 0 0 1 0 2H9a1 1 0 0 1 0-2h2v-2.062A8 8 0 0 1 4 12a1 1 0 0 1 2 0 6 6 0 0 0 12 0 1 1 0 0 1 1-1z"/>
+                            </svg>
+                            <span>Speak</span>
+                        </button>
+                        <button type="button" class="btn-field-action btn-clear" id="clear-{key}" onclick="clearField('{key}')" disabled aria-label="Clear">
+                            Clear
+                        </button>
+                        <button type="button" class="btn-field-action btn-draft" id="draft-{key}" onclick="draftField('{key}')" disabled aria-label="Draft">
+                            Draft
+                        </button>
+                    </div>
+                </div>
+            </td>
+        </tr>"""
+
+    import json as _json
+    field_meta_json = _json.dumps(field_meta)
+    matrix_types_json = _json.dumps(matrix_types)
+    matrix_type_options_html = "\n".join(
+        f'<option value="{k}">{k}</option>'
+        for k in matrix_types.keys()
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Scope Generator</title>
+    <style>
+        * {{
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            padding: 0 0 60px;
+        }}
+        .page-wrapper {{
+            max-width: 90%;
+            margin: 0 auto;
+            padding: 32px 0 0 4px;
+        }}
+        .page-header {{
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+        }}
+        .page-header h1 {{
+            font-size: 1.7rem;
+            color: #1a1a2e;
+            margin-bottom: 4px;
+        }}
+        .page {{
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            margin-top: 20px;
+        }}
+        .col-title {{
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+            margin-bottom: 10px;
+        }}
+        .toc {{
+            width: 210px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 24px;
+            padding-right: 20px;
+        }}
+        .toc .col-title {{
+            padding-left: 10px;
+        }}
+        .toc ul {{
+            list-style: none;
+            border-left: 2px solid #e4e7ec;
+        }}
+        .toc-link {{
+            display: block;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            color: #6b7280;
+            text-decoration: none;
+            border-left: 2px solid transparent;
+            margin-left: -2px;
+            transition: color 0.15s, border-color 0.15s;
+            line-height: 1.4;
+            white-space: nowrap;
+        }}
+        .toc-link:hover {{
+            color: #4f6ef7;
+        }}
+        .toc-link.active {{
+            color: #4f6ef7;
+            border-left-color: #4f6ef7;
+            font-weight: 600;
+        }}
+        .col {{
+            display: flex;
+            flex-direction: column;
+        }}
+        .col-main {{
+            flex: 1;
+            min-width: 0;
+        }}
+        .container {{
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 16px 28px 28px;
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.07);
+        }}
+        h1 {{
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            color: #1a1a2e;
+        }}
+        .subtitle {{
+            color: #666;
+            font-size: 0.95rem;
+        }}
+        .scope-table {{
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #e4e7ec;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 0;
+        }}
+        .field-row {{
+            border-bottom: 1px solid #e4e7ec;
+        }}
+        .field-row:last-child {{
+            border-bottom: none;
+        }}
+        .field-row:nth-child(even) .field-label,
+        .field-row:nth-child(even) .field-input {{
+            background: #fafbfc;
+        }}
+        .field-label {{
+            width: 220px;
+            min-width: 180px;
+            padding: 20px 20px;
+            vertical-align: top;
+            border-right: 1px solid #e4e7ec;
+            background: #fff;
+        }}
+        .field-label label {{
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #374151;
+            line-height: 1.4;
+        }}
+        .field-input {{
+            padding: 16px 16px;
+            vertical-align: top;
+            background: #fff;
+        }}
+        .input-row {{
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }}
+        .input-row textarea {{
+            flex: 1;
+        }}
+        .field-actions {{
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-shrink: 0;
+        }}
+        textarea {{
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #e4e7ec;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            font-family: inherit;
+            color: #1a1a2e;
+            resize: vertical;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: #fff;
+        }}
+        textarea:focus {{
+            outline: none;
+            border-color: #93a4f8;
+            box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.08);
+        }}
+        textarea::placeholder {{
+            color: #c0c5ce;
+            font-size: 0.82rem;
+        }}
+        .actions {{
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }}
+        button {{
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }}
+        button:active {{
+            transform: scale(0.98);
+        }}
+        .btn-primary {{
+            background: #4f6ef7;
+            color: #fff;
+        }}
+        .btn-primary:hover {{
+            background: #3a57d6;
+        }}
+        .btn-secondary {{
+            background: #f0f2f5;
+            color: #555;
+        }}
+        .btn-secondary:hover {{
+            background: #e2e5eb;
+        }}
+        .btn-field-action {{
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid #e4e7ec;
+            transition: background 0.15s, opacity 0.15s;
+            text-align: center;
+        }}
+        .btn-field-action:disabled {{
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
+        }}
+        .btn-clear {{
+            background: #fff;
+            color: #6b7280;
+        }}
+        .btn-clear:hover {{
+            background: #f3f4f6;
+        }}
+        .btn-draft {{
+            background: #eff6ff;
+            color: #2563eb;
+            border-color: #bfdbfe;
+        }}
+        .btn-draft:hover {{
+            background: #dbeafe;
+        }}
+        .btn-draft.approved {{
+            background: #dcfce7;
+            color: #166534;
+            border-color: #86efac;
+        }}
+        .btn-draft.approved:hover {{
+            background: #bbf7d0;
+        }}
+        .draft-menu {{
+            position: absolute;
+            background: #fff;
+            border: 1px solid #e4e7ec;
+            border-radius: 7px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+            z-index: 10000;
+            overflow: hidden;
+            font-size: 0.82rem;
+            min-width: 160px;
+        }}
+        .draft-menu button {{
+            display: block;
+            width: 100%;
+            padding: 9px 14px;
+            background: none;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: #374151;
+            transition: background 0.12s;
+        }}
+        .draft-menu button:hover {{
+            background: #f3f4f6;
+        }}
+        .draft-menu button.approve-opt {{
+            color: #166534;
+        }}
+        .draft-menu button.approve-opt:hover {{
+            background: #dcfce7;
+        }}
+        .toc-check {{
+            display: inline-block;
+            width: 14px;
+            font-size: 0.75rem;
+            color: #22c55e;
+            margin-right: 2px;
+        }}
+        .btn-mic {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 0;
+            padding: 6px 14px;
+            background: #f0f2f5;
+            color: #555;
+            border: 1px solid #dde1e7;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }}
+        .btn-mic:hover {{
+            background: #e2e5eb;
+        }}
+        .btn-mic.recording {{
+            background: #fee2e2;
+            color: #dc2626;
+            border-color: #fca5a5;
+            animation: pulse 1.2s infinite;
+        }}
+        @keyframes pulse {{
+            0%, 100% {{ opacity: 1; }}
+            50% {{ opacity: 0.6; }}
+        }}
+        .btn-settings {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: #f0f2f5;
+            color: #555;
+            border: 1px solid #dde1e7;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }}
+        .btn-settings:hover {{
+            background: #e2e5eb;
+        }}
+        .settings-panel {{
+            display: none;
+            background: #f8f9fb;
+            border: 1px solid #dde1e7;
+            border-radius: 10px;
+            padding: 20px 24px;
+            margin-bottom: 16px;
+        }}
+        .settings-panel.open {{
+            display: block;
+        }}
+        .settings-panel h3 {{
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 14px;
+        }}
+        .settings-row {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }}
+        .settings-row-label {{
+            font-size: 0.88rem;
+            color: #444;
+        }}
+        .settings-row-label span {{
+            display: block;
+            font-size: 0.78rem;
+            color: #999;
+            margin-top: 2px;
+        }}
+        .btn-grant {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 16px;
+            border: none;
+            border-radius: 7px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }}
+        .btn-grant.not-granted {{
+            background: #4f6ef7;
+            color: #fff;
+        }}
+        .btn-grant.not-granted:hover {{
+            background: #3a57d6;
+        }}
+        .btn-grant.granted {{
+            background: #dcfce7;
+            color: #166534;
+            cursor: default;
+        }}
+
+        /* ── Preview panel ── */
+        .preview {{
+            width: 340px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 24px;
+            max-height: calc(100vh - 60px);
+            overflow-y: auto;
+            padding-left: 20px;
+        }}
+        .preview-doc {{
+            background: #fff;
+            border: 1px solid #e4e7ec;
+            border-radius: 8px;
+            padding: 20px 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            font-size: 0.78rem;
+            line-height: 1.5;
+        }}
+        .preview-doc-title {{
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #1a1a2e;
+            border-bottom: 2px solid #e4e7ec;
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+        }}
+        .preview-item {{
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f0f2f5;
+        }}
+        .preview-item:last-child {{
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }}
+        .preview-item-label {{
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #9ca3af;
+            margin-bottom: 3px;
+        }}
+        .preview-item-value {{
+            color: #374151;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }}
+        .preview-item-value.na {{
+            color: #d1d5db;
+            font-style: italic;
+        }}
+        .preview-item.has-value .preview-item-label {{
+            color: #4f6ef7;
+        }}
+
+        /* ── RACI Matrix ── */
+        .raci-wrap {{
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px 20px 20px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+        }}
+        .raci-toolbar {{
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 12px;
+        }}
+        .btn-raci-add {{
+            padding: 7px 16px;
+            background: #4f6ef7;
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }}
+        .btn-raci-add:hover {{
+            background: #3a57d6;
+        }}
+        .raci-table-wrap {{
+            overflow-x: auto;
+        }}
+        .raci-table {{
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #e4e7ec;
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 0.84rem;
+        }}
+        .raci-table th {{
+            background: #f8f9fb;
+            color: #6b7280;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 10px 14px;
+            border-bottom: 1px solid #e4e7ec;
+            text-align: left;
+            white-space: nowrap;
+        }}
+        .raci-table th.stakeholder-col {{
+            text-align: center;
+        }}
+        .raci-table td {{
+            padding: 8px 10px;
+            border-bottom: 1px solid #f0f2f5;
+            vertical-align: middle;
+        }}
+        .raci-table tbody tr:last-child td {{
+            border-bottom: none;
+        }}
+        .raci-table tbody tr:nth-child(even) td {{
+            background: #fafbfc;
+        }}
+        .raci-activity-input {{
+            width: 100%;
+            min-width: 180px;
+            padding: 6px 10px;
+            border: 1px solid #e4e7ec;
+            border-radius: 5px;
+            font-size: 0.84rem;
+            font-family: inherit;
+            color: #1a1a2e;
+            background: #fff;
+            transition: border-color 0.2s;
+        }}
+        .raci-activity-input:focus {{
+            outline: none;
+            border-color: #93a4f8;
+            box-shadow: 0 0 0 3px rgba(79,110,247,0.08);
+        }}
+        .raci-select {{
+            display: block;
+            margin: 0 auto;
+            padding: 5px 8px;
+            border: 1px solid #e4e7ec;
+            border-radius: 5px;
+            font-size: 0.82rem;
+            font-family: inherit;
+            color: #374151;
+            background: #fff;
+            cursor: pointer;
+            min-width: 60px;
+        }}
+        .raci-select:focus {{
+            outline: none;
+            border-color: #93a4f8;
+        }}
+        .raci-td-center {{
+            text-align: center;
+        }}
+        .btn-raci-remove {{
+            padding: 4px 8px;
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fca5a5;
+            border-radius: 5px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+        }}
+        .btn-raci-remove:hover {{
+            background: #fecaca;
+        }}
+        .raci-type-picker {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }}
+        .raci-type-label {{
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #6b7280;
+            white-space: nowrap;
+        }}
+        .raci-type-select {{
+            padding: 6px 10px;
+            border: 1px solid #e4e7ec;
+            border-radius: 7px;
+            font-size: 0.82rem;
+            font-family: inherit;
+            color: #374151;
+            background: #fff;
+            cursor: pointer;
+            width: auto;
+        }}
+        .raci-type-select:focus {{
+            outline: none;
+            border-color: #93a4f8;
+            box-shadow: 0 0 0 3px rgba(79,110,247,0.08);
+        }}
+        .raci-type-desc {{
+            font-size: 0.82rem;
+            color: #6b7280;
+            text-align: center;
+        }}
+        .raci-type-desc strong {{
+            color: #1a1a2e;
+            font-weight: 700;
+        }}
+        .raci-td-drag {{
+            width: 28px;
+            text-align: center;
+            cursor: grab;
+            color: #d1d5db;
+            font-size: 1rem;
+            user-select: none;
+            padding: 8px 4px;
+        }}
+        .raci-td-drag:active {{
+            cursor: grabbing;
+        }}
+        .raci-table tbody tr.dragging {{
+            opacity: 0.4;
+        }}
+        .raci-table tbody tr.drag-over {{
+            border-top: 2px solid #4f6ef7;
+        }}
+        .btn-raci-color {{
+            padding: 7px 16px;
+            background: #f0f2f5;
+            color: #555;
+            border: 1px solid #dde1e7;
+            border-radius: 7px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            margin-right: 8px;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }}
+        .btn-raci-color.active {{
+            background: #eff6ff;
+            color: #2563eb;
+            border-color: #bfdbfe;
+        }}
+        /* Role colors — applied to TD when color mode is on */
+        .raci-color-R {{ background: #dbeafe !important; }}
+        .raci-color-A {{ background: #fee2e2 !important; }}
+        .raci-color-C {{ background: #fef9c3 !important; }}
+        .raci-color-I {{ background: #dcfce7 !important; }}
+        .raci-color-S {{ background: #f3e8ff !important; }}
+        .raci-color-F {{ background: #fce7f3 !important; }}
+        .raci-color-D {{ background: #e0e7ff !important; }}
+        .raci-color-O {{ background: #f3f4f6 !important; }}
+        .raci-color-Q {{ background: #ccfbf1 !important; }}
+        .raci-color-V {{ background: #ffedd5 !important; }}
+        .raci-color-L {{ background: #cffafe !important; }}
+        .raci-color-P {{ background: #ecfccb !important; }}
+
+        /* Priority colors — always applied */
+        .raci-td-priority, .raci-td-status {{ text-align: center; }}
+        .raci-pri-Low      {{ background: #fef9c3 !important; color: #854d0e; }}
+        .raci-pri-Medium   {{ background: #ffedd5 !important; color: #9a3412; }}
+        .raci-pri-High     {{ background: #fee2e2 !important; color: #991b1b; }}
+        /* Status colors — always applied */
+        .raci-sta-Not-Started  {{ background: #f3f4f6 !important; color: #6b7280; }}
+        .raci-sta-In-Progress  {{ background: #dbeafe !important; color: #1e40af; }}
+        .raci-sta-Needs-Review {{ background: #fef3c7 !important; color: #92400e; }}
+        .raci-sta-Complete     {{ background: #dcfce7 !important; color: #166534; }}
+        .raci-sta-Approved     {{ background: #ccfbf1 !important; color: #0f766e; }}
+        /* Small selects for priority / status */
+        .raci-meta-select {{
+            width: 100%;
+            padding: 4px 4px;
+            border: none;
+            background: transparent;
+            font-size: 0.75rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            text-align: center;
+        }}
+        .raci-meta-select:focus {{ outline: none; }}
+        /* Group rows */
+        .raci-group-row td {{
+            background: #374151 !important;
+            padding: 7px 12px;
+            border-bottom: none;
+        }}
+        .raci-group-input {{
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.8rem;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            font-family: inherit;
+            width: 100%;
+            outline: none;
+        }}
+        .raci-group-input::placeholder {{ color: #9ca3af; font-style: italic; }}
+        /* Column group header cells */
+        .raci-col-group-th {{
+            text-align: center;
+            background: #f1f5f9 !important;
+            color: #475569;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            border-right: 2px solid #e4e7ec;
+            padding: 8px 14px;
+        }}
+        /* Column groups input bar */
+        .raci-colgroups-bar {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0 12px;
+            border-bottom: 1px solid #f0f2f5;
+            margin-bottom: 4px;
+        }}
+        .raci-colgroups-input {{
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #e4e7ec;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-family: inherit;
+            color: #374151;
+            background: #fff;
+        }}
+        .raci-colgroups-input:focus {{
+            outline: none;
+            border-color: #93a4f8;
+            box-shadow: 0 0 0 3px rgba(79,110,247,0.08);
+        }}
+    </style>
+</head>
+<body>
+    <div class="page-wrapper">
+
+        <!-- ── Full-width title bar ── -->
+        <div class="page-header">
+            <div>
+                <h1>Project Scope Generator</h1>
+                <p class="subtitle">Fill in the fields below to define your project statement and scope.</p>
+            </div>
+            <button type="button" class="btn-settings" onclick="toggleSettings()" aria-label="Settings">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.34.07-.69.07-1.08s-.03-.74-.07-1.08l2.32-1.82c.21-.16.27-.46.13-.7l-2.2-3.81c-.13-.24-.42-.32-.66-.24l-2.74 1.1c-.57-.44-1.18-.8-1.85-1.08L14.03 2.2C13.98 1.93 13.74 1.75 13.5 1.75h-3c-.24 0-.48.18-.53.45l-.41 2.67c-.67.28-1.28.64-1.85 1.08L4.97 4.85c-.24-.08-.53 0-.66.24l-2.2 3.81c-.14.24-.08.54.13.7l2.32 1.82c-.04.34-.07.69-.07 1.08s.03.74.07 1.08L2.24 15.4c-.21.16-.27.46-.13.7l2.2 3.81c.13.24.42.32.66.24l2.74-1.1c.57.44 1.18.8 1.85 1.08l.41 2.67c.05.27.29.45.53.45h3c.24 0 .48-.18.53-.45l.41-2.67c.67-.28 1.28-.64 1.85-1.08l2.74 1.1c.24.08.53 0 .66-.24l2.2-3.81c.14-.24.08-.54-.13-.7l-2.32-1.82z"/>
+                </svg>
+                Settings
+            </button>
+        </div>
+
+        <!-- ── Settings panel (full-width, collapsible) ── -->
+        <div class="settings-panel" id="settingsPanel">
+            <h3>Settings</h3>
+            <div class="settings-row">
+                <div class="settings-row-label">
+                    Microphone Access
+                    <span>Grant permission once so all Speak buttons work without browser prompts.</span>
+                </div>
+                <button type="button" id="btnGrant" class="btn-grant not-granted" onclick="grantMicPermission()">
+                    Grant Access
+                </button>
+            </div>
+            <div id="fileWarning" style="display:none;margin-top:14px;padding:10px 14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;font-size:0.8rem;color:#92400e;line-height:1.6;">
+                <strong>Tip:</strong> You are opening this file directly (<code>file://</code>). Chrome cannot remember microphone permission for local files — it will prompt on every recording.<br>
+                Double-click <strong>start.bat</strong> to launch the local server, then click <strong>Enable localhost</strong> below.
+                <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <button type="button" onclick="enableLocalhost()" style="padding:7px 16px;background:#4f6ef7;color:#fff;border:none;border-radius:7px;font-size:0.82rem;font-weight:600;cursor:pointer;">
+                        Enable localhost
+                    </button>
+                    <span id="localhostStatus" style="font-size:0.78rem;color:#92400e;"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Three columns ── -->
+        <div class="page">
+            <nav class="toc" aria-label="Table of contents">
+                <div class="col-title">Contents</div>
+                <ul>
+                {toc_items_html}
+                </ul>
+            </nav>
+
+            <div class="col col-main">
+                <div class="col-title">Generator</div>
+                <div class="container">
+                    <form id="scopeForm">
+                        <table class="scope-table">
+                            <tbody>
+                                {form_fields_html}
+                            </tbody>
+                        </table>
+                        <div class="actions">
+                            <button type="button" class="btn-primary" onclick="exportJSON()">Export as JSON</button>
+                            <button type="button" class="btn-secondary" onclick="clearForm()">Clear All</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <aside class="preview" aria-label="Preview">
+                <div class="col-title">Preview</div>
+                <div class="preview-doc">
+                    <div class="preview-doc-title">Project Scope Statement</div>
+                    <div id="previewBody"></div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- ── RACI Section ── -->
+        <div id="raciSection" style="display:none; margin-top:36px;">
+            <div class="col-title" style="margin-bottom:10px;" id="raciTitle">RACI Matrix</div>
+            <div class="raci-wrap">
+                <div class="raci-toolbar">
+                    <div class="raci-type-picker">
+                        <span class="raci-type-label">Matrix type</span>
+                        <select class="raci-type-select" id="raciTypeSelect" onchange="setMatrixType(this.value)">
+                            {matrix_type_options_html}
+                        </select>
+                        <span class="raci-type-desc" id="raciTypeDesc"></span>
+                    </div>
+                    <button type="button" class="btn-raci-color" id="btnRaciColor" onclick="toggleColorByRole()">Color by role</button>
+                    <button type="button" class="btn-raci-add" onclick="addRaciGroup()" style="background:#4b5563;margin-right:8px;">+ Add Group</button>
+                    <button type="button" class="btn-raci-add" onclick="addRaciRow()">+ Add Activity</button>
+                </div>
+                <div class="raci-colgroups-bar">
+                    <span class="raci-type-label">Column groups</span>
+                    <input type="text" id="raciColGroups" class="raci-colgroups-input"
+                           placeholder="e.g. Project Leadership: Alice, Bob | Team Members: Carol, Dave"
+                           oninput="rebuildRaciHeader()">
+                </div>
+                <div class="raci-table-wrap">
+                    <table class="raci-table" id="raciTable">
+                        <thead id="raciHead"></thead>
+                        <tbody id="raciBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Field metadata ---
+        const FIELDS = {field_meta_json};
+
+        // --- Matrix types ---
+        const MATRIX_TYPES = {matrix_types_json};
+
+        // --- Preview ---
+        function updatePreview() {{
+            const filled = [];
+            const empty = [];
+            FIELDS.forEach(f => {{
+                const val = (document.getElementById(f.key)?.value || "").trim();
+                (val ? filled : empty).push({{ label: f.label, value: val }});
+            }});
+            const all = [...filled, ...empty];
+            document.getElementById("previewBody").innerHTML = all.map(f => {{
+                const hasVal = !!f.value;
+                return `<div class="preview-item ${{hasVal ? 'has-value' : ''}}">
+                    <div class="preview-item-label">${{f.label}}</div>
+                    <div class="preview-item-value ${{hasVal ? '' : 'na'}}">${{hasVal ? f.value.replace(/</g,'&lt;') : 'N/A'}}</div>
+                </div>`;
+            }}).join("");
+        }}
+        updatePreview();
+
+        // --- TOC scroll spy ---
+        (function () {{
+            const links = document.querySelectorAll(".toc-link");
+            const rows = Array.from(links).map(l => document.querySelector(l.getAttribute("href")));
+            function onScroll() {{
+                let current = 0;
+                rows.forEach((row, i) => {{
+                    if (row && row.getBoundingClientRect().top <= 120) current = i;
+                }});
+                links.forEach((l, i) => l.classList.toggle("active", i === current));
+            }}
+            window.addEventListener("scroll", onScroll, {{ passive: true }});
+            onScroll();
+        }})();
+        function exportJSON() {{
+            const form = document.getElementById("scopeForm");
+            const data = {{}};
+            form.querySelectorAll("textarea").forEach(el => {{
+                data[el.name] = el.value;
+            }});
+            const blob = new Blob([JSON.stringify(data, null, 2)], {{ type: "application/json" }});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "project_scope.json";
+            a.click();
+            URL.revokeObjectURL(url);
+        }}
+
+        function clearForm() {{
+            document.getElementById("scopeForm").querySelectorAll("textarea").forEach(el => {{
+                el.value = "";
+                onFieldInput(el.id);
+            }});
+        }}
+
+        const LOCALHOST_URL = "http://localhost:8765";
+
+        // --- Localhost heartbeat (only when already served via localhost) ---
+        if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {{
+            const ping = () => fetch(`${{LOCALHOST_URL}}/api/ping`).catch(() => {{}});
+            ping();
+            setInterval(ping, 5000);
+            window.addEventListener("beforeunload", () => {{
+                navigator.sendBeacon(`${{LOCALHOST_URL}}/api/shutdown`);
+            }});
+        }}
+
+        // --- Enable localhost button (shown on file://) ---
+        function enableLocalhost() {{
+            const status = document.getElementById("localhostStatus");
+            status.textContent = "Checking server…";
+            fetch(`${{LOCALHOST_URL}}/api/alive`)
+                .then(r => r.json())
+                .then(() => {{
+                    status.textContent = "Server found! Redirecting…";
+                    location.href = `${{LOCALHOST_URL}}/project_scope_form.html`;
+                }})
+                .catch(() => {{
+                    status.textContent = "Server not running. Start it with: python serve.py";
+                }});
+        }}
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let activeButton = null;
+        let currentFieldId = null;
+        let permissionGranted = false;
+
+        const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+        if (recognition) {{
+            recognition.lang = "en-US";
+            recognition.interimResults = false;
+            recognition.continuous = false; // mic on only while recording
+
+            recognition.onresult = (event) => {{
+                const transcript = event.results[0][0].transcript;
+                const textarea = document.getElementById(currentFieldId);
+                if (!textarea) return;
+                textarea.value = textarea.value
+                    ? textarea.value + " " + transcript
+                    : transcript;
+                onFieldInput(currentFieldId);
+            }};
+
+            recognition.onerror = (event) => {{
+                console.error("Speech error:", event.error);
+                stopRecordingUI();
+            }};
+
+            recognition.onend = () => {{
+                stopRecordingUI();
+            }};
+        }}
+
+        function stopRecordingUI() {{
+            if (activeButton) {{
+                activeButton.classList.remove("recording");
+                activeButton.querySelector("span").textContent = "Speak";
+                activeButton = null;
+            }}
+            currentFieldId = null;
+        }}
+
+        const fieldStatus = {{}};  // fieldId -> "draft" | "approved"
+
+        function onFieldInput(fieldId) {{
+            const hasValue = document.getElementById(fieldId).value.trim().length > 0;
+            document.getElementById("clear-" + fieldId).disabled = !hasValue;
+            const draftBtn = document.getElementById("draft-" + fieldId);
+            draftBtn.disabled = !hasValue;
+            if (!hasValue && fieldStatus[fieldId]) {{
+                setFieldStatus(fieldId, null);
+            }}
+            updatePreview();
+            if (fieldId === "stakeholders") updateRaciColumns();
+        }}
+
+        function clearField(fieldId) {{
+            document.getElementById(fieldId).value = "";
+            onFieldInput(fieldId);
+        }}
+
+        function setFieldStatus(fieldId, status) {{
+            fieldStatus[fieldId] = status;
+            const draftBtn = document.getElementById("draft-" + fieldId);
+            const checkEl = document.getElementById("check-" + fieldId);
+            if (status === "approved") {{
+                draftBtn.textContent = "✓ Done";
+                draftBtn.classList.add("approved");
+                checkEl.textContent = "✓";
+                checkEl.title = "Done";
+            }} else {{
+                draftBtn.textContent = "Draft";
+                draftBtn.classList.remove("approved");
+                checkEl.textContent = "";
+            }}
+        }}
+
+        function draftField(fieldId) {{
+            // close any existing menu
+            const existing = document.getElementById("draft-menu");
+            if (existing) {{ existing.remove(); return; }}
+
+            const btn = document.getElementById("draft-" + fieldId);
+            const rect = btn.getBoundingClientRect();
+            const menu = document.createElement("div");
+            menu.id = "draft-menu";
+            menu.className = "draft-menu";
+            menu.style.top = (rect.bottom + window.scrollY + 4) + "px";
+            menu.style.left = rect.left + "px";
+            menu.style.position = "absolute";
+
+            const isApproved = fieldStatus[fieldId] === "approved";
+            menu.innerHTML = isApproved
+                ? `<button class="approve-opt" onclick="setFieldStatus('${{fieldId}}', 'approved'); closeDraftMenu();">✓ Keep as Done</button>
+                   <button onclick="setFieldStatus('${{fieldId}}', 'draft'); closeDraftMenu();">Revert to Draft</button>`
+                : `<button class="approve-opt" onclick="setFieldStatus('${{fieldId}}', 'approved'); closeDraftMenu();">Mark as Done</button>
+                   <button onclick="closeDraftMenu();">Leave as Draft</button>`;
+
+            document.body.appendChild(menu);
+            setTimeout(() => document.addEventListener("click", closeDraftMenuOnOutside), 0);
+        }}
+
+        function closeDraftMenu() {{
+            const m = document.getElementById("draft-menu");
+            if (m) m.remove();
+            document.removeEventListener("click", closeDraftMenuOnOutside);
+        }}
+
+        function closeDraftMenuOnOutside(e) {{
+            const m = document.getElementById("draft-menu");
+            if (m && !m.contains(e.target)) closeDraftMenu();
+        }}
+
+        function toggleSettings() {{
+            const panel = document.getElementById("settingsPanel");
+            panel.classList.toggle("open");
+            if (panel.classList.contains("open") && location.protocol === "file:") {{
+                document.getElementById("fileWarning").style.display = "block";
+            }}
+        }}
+
+        function grantMicPermission() {{
+            if (!recognition) return;
+
+            recognition.onstart = () => {{
+                // Permission granted — stop immediately, mic no longer needed
+                recognition.onstart = null;
+                recognition.abort();
+
+                permissionGranted = true;
+                const btn = document.getElementById("btnGrant");
+                btn.textContent = "✓ Access Granted";
+                btn.classList.replace("not-granted", "granted");
+                btn.onclick = null;
+                document.getElementById("settingsPanel").classList.remove("open");
+            }};
+
+            recognition.onerror = (event) => {{
+                recognition.onstart = null;
+                if (event.error === "not-allowed") {{
+                    alert("Microphone access was denied. Please allow it in your browser settings.");
+                }}
+                // restore normal error handler
+                recognition.onerror = (e) => {{ console.error("Speech error:", e.error); stopRecordingUI(); }};
+            }};
+
+            recognition.start();
+        }}
+
+        function startRecording(fieldId) {{
+            if (!permissionGranted) {{
+                document.getElementById("settingsPanel").classList.add("open");
+                document.getElementById("btnGrant").focus();
+                return;
+            }}
+            if (activeButton) stopRecordingUI();
+            currentFieldId = fieldId;
+            activeButton = document.querySelector(`[data-mic-field="${{fieldId}}"]`);
+            if (activeButton) {{
+                activeButton.classList.add("recording");
+                activeButton.querySelector("span").textContent = "Click to stop recording";
+            }}
+            recognition.start();
+        }}
+
+        function detectBrowser() {{
+            const ua = navigator.userAgent;
+            let name = "Unknown Browser";
+            let version = "";
+
+            if (/Edg\\//.test(ua)) {{
+                name = "Microsoft Edge";
+                version = ua.match(/Edg\\/([\\d.]+)/)?.[1] ?? "";
+            }} else if (/OPR\\//.test(ua) || /Opera/.test(ua)) {{
+                name = "Opera";
+                version = (ua.match(/OPR\\/([\\d.]+)/) || ua.match(/Opera\\/([\\d.]+)/))?.[1] ?? "";
+            }} else if (/Chrome\\//.test(ua) && !/Chromium\\//.test(ua)) {{
+                name = "Chrome";
+                version = ua.match(/Chrome\\/([\\d.]+)/)?.[1] ?? "";
+            }} else if (/Firefox\\//.test(ua)) {{
+                name = "Firefox";
+                version = ua.match(/Firefox\\/([\\d.]+)/)?.[1] ?? "";
+            }} else if (/Safari\\//.test(ua) && !/Chrome\\//.test(ua)) {{
+                name = "Safari";
+                version = ua.match(/Version\\/([\\d.]+)/)?.[1] ?? "";
+            }} else if (/Trident\\//.test(ua) || /MSIE/.test(ua)) {{
+                name = "Internet Explorer";
+                version = (ua.match(/rv:([\\d.]+)/) || ua.match(/MSIE ([\\d.]+)/))?.[1] ?? "";
+            }}
+
+            return {{ name, version }};
+        }}
+
+        (function checkBrowser() {{
+            const {{ name, version }} = detectBrowser();
+            const label = version ? `${{name}} ${{version}}` : name;
+            const banner = document.createElement("div");
+
+            if (SpeechRecognition) {{
+                banner.style.cssText = [
+                    "position: fixed", "top: 0", "left: 0", "right: 0",
+                    "background: #dcfce7", "color: #166534",
+                    "border-bottom: 1px solid #86efac",
+                    "padding: 12px 20px", "font-size: 0.88rem",
+                    "display: flex", "align-items: center", "gap: 10px",
+                    "z-index: 9999", "font-family: inherit"
+                ].join(";");
+                banner.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0">
+                        <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm0 2a8 8 0 1 1 0 16A8 8 0 0 1 12 4zm-1 9.414-2.707-2.707-1.414 1.414L11 16.243l6.121-6.122-1.414-1.414L11 13.414z"/>
+                    </svg>
+                    <span>Great news! Your browser (<strong>${{label}}</strong>) supports speech to text.</span>
+                    <button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:1.1rem;color:#166534;line-height:1;" aria-label="Dismiss">&times;</button>
+                `;
+                setTimeout(() => banner.remove(), 5000);
+            }} else {{
+                banner.style.cssText = [
+                    "position: fixed", "top: 0", "left: 0", "right: 0",
+                    "background: #fef3c7", "color: #92400e",
+                    "border-bottom: 1px solid #fcd34d",
+                    "padding: 12px 20px", "font-size: 0.88rem",
+                    "display: flex", "align-items: center", "gap: 10px",
+                    "z-index: 9999", "font-family: inherit"
+                ].join(";");
+                banner.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0">
+                        <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm0 2a8 8 0 1 1 0 16A8 8 0 0 1 12 4zm-1 4v5h2V8h-2zm0 6v2h2v-2h-2z"/>
+                    </svg>
+                    <span>Speech to text is not supported on <strong>${{label}}</strong>. Reopen in <strong>Chrome</strong> or <strong>Edge</strong>.</span>
+                    <button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:1.1rem;color:#92400e;line-height:1;" aria-label="Dismiss">&times;</button>
+                `;
+            }}
+
+            document.body.prepend(banner);
+        }})();
+
+        function toggleSpeech(btn, fieldId) {{
+            if (!SpeechRecognition) {{
+                alert("Speech recognition is not supported in this browser. Try Chrome or Edge.");
+                return;
+            }}
+            if (activeButton === btn) {{
+                recognition.stop();
+                return;
+            }}
+            btn.dataset.micField = fieldId;
+            startRecording(fieldId);
+        }}
+
+        // ── RACI Matrix ──
+        let raciStakeholders = [];
+        let currentMatrixType = "RACI";
+
+        function setMatrixType(key) {{
+            currentMatrixType = key;
+            const type = MATRIX_TYPES[key];
+            document.getElementById("raciTitle").textContent = type.name + " Matrix";
+            document.getElementById("raciTypeDesc").innerHTML = type.roles
+                .map(r => `<strong>${{r.label[0]}}</strong>${{r.label.slice(1)}}`)
+                .join(" · ");
+            document.querySelectorAll("#raciBody .raci-select").forEach(sel => {{
+                const prev = sel.value;
+                sel.innerHTML = "";
+                buildRaciOptions(sel);
+                if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+            }});
+        }}
+
+        document.addEventListener("DOMContentLoaded", () => setMatrixType(currentMatrixType));
+
+        function buildRaciOptions(sel) {{
+            const options = MATRIX_TYPES[currentMatrixType].options;
+            const blankOpt = document.createElement("option");
+            blankOpt.value = "";
+            blankOpt.textContent = "–";
+            sel.appendChild(blankOpt);
+            options.forEach(v => {{
+                const opt = document.createElement("option");
+                opt.value = v;
+                opt.textContent = v;
+                sel.appendChild(opt);
+            }});
+        }}
+
+        function updateRaciColumns() {{
+            const val = (document.getElementById("stakeholders")?.value || "").trim();
+            const section = document.getElementById("raciSection");
+            if (!val) {{
+                section.style.display = "none";
+                raciStakeholders = [];
+                return;
+            }}
+            const newStakeholders = val.split(",").map(s => s.trim()).filter(Boolean);
+            const changed = JSON.stringify(newStakeholders) !== JSON.stringify(raciStakeholders);
+            raciStakeholders = newStakeholders;
+            section.style.display = "block";
+            if (changed) {{
+                rebuildRaciHeader();
+                adjustRaciRows();
+            }}
+        }}
+
+        // Parse "Group A: Alice, Bob | Group B: Carol" → [{{name, count}}, ...]
+        // covering all raciStakeholders in their order
+        function getGroupSpans() {{
+            const raw = (document.getElementById("raciColGroups")?.value || "").trim();
+            if (!raw) return null;
+            const map = {{}};
+            raw.split("|").forEach(part => {{
+                const ci = part.indexOf(":");
+                if (ci === -1) return;
+                const name = part.slice(0, ci).trim();
+                part.slice(ci + 1).split(",").forEach(m => {{
+                    map[m.trim().toLowerCase()] = name;
+                }});
+            }});
+            const spans = [];
+            raciStakeholders.forEach(s => {{
+                const grp = map[s.toLowerCase()] || "";
+                if (spans.length && spans[spans.length - 1].name === grp) {{
+                    spans[spans.length - 1].count++;
+                }} else {{
+                    spans.push({{ name: grp, count: 1 }});
+                }}
+            }});
+            return spans.some(s => s.name) ? spans : null;
+        }}
+
+        function rebuildRaciHeader() {{
+            const thead = document.getElementById("raciHead");
+            thead.innerHTML = "";
+            const spans = getGroupSpans();
+            const fixedCols = 4; // drag + priority + status + activity
+
+            if (spans) {{
+                // Row 1 — group headers + fixed cols rowspan 2
+                const tr1 = document.createElement("tr");
+                [["", "28px"], ["Priority", "80px"], ["Status", "110px"], ["Activity", null]].forEach(([txt, w]) => {{
+                    const th = document.createElement("th");
+                    th.textContent = txt;
+                    th.rowSpan = 2;
+                    if (w) th.style.width = w; else th.style.minWidth = "200px";
+                    tr1.appendChild(th);
+                }});
+                spans.forEach(s => {{
+                    const th = document.createElement("th");
+                    th.textContent = s.name;
+                    th.colSpan = s.count;
+                    th.className = s.name ? "raci-col-group-th stakeholder-col" : "stakeholder-col";
+                    tr1.appendChild(th);
+                }});
+                const removeTh1 = document.createElement("th");
+                removeTh1.rowSpan = 2;
+                removeTh1.style.width = "40px";
+                tr1.appendChild(removeTh1);
+                thead.appendChild(tr1);
+
+                // Row 2 — stakeholder names
+                const tr2 = document.createElement("tr");
+                raciStakeholders.forEach(name => {{
+                    const th = document.createElement("th");
+                    th.textContent = name;
+                    th.className = "stakeholder-col";
+                    tr2.appendChild(th);
+                }});
+                thead.appendChild(tr2);
+            }} else {{
+                // Single-row header
+                const tr = document.createElement("tr");
+                [["", "28px"], ["Priority", "80px"], ["Status", "110px"], ["Activity", null]].forEach(([txt, w]) => {{
+                    const th = document.createElement("th");
+                    th.textContent = txt;
+                    if (w) th.style.width = w; else th.style.minWidth = "200px";
+                    tr.appendChild(th);
+                }});
+                raciStakeholders.forEach(name => {{
+                    const th = document.createElement("th");
+                    th.textContent = name;
+                    th.className = "stakeholder-col";
+                    tr.appendChild(th);
+                }});
+                const removeTh = document.createElement("th");
+                removeTh.style.width = "40px";
+                tr.appendChild(removeTh);
+                thead.appendChild(tr);
+            }}
+
+            // Update colspan on any existing group rows
+            const total = fixedCols + raciStakeholders.length + 1;
+            document.querySelectorAll("#raciBody .raci-group-row td[colspan]").forEach(td => {{
+                td.colSpan = total;
+            }});
+        }}
+
+        function adjustRaciRows() {{
+            const tbody = document.getElementById("raciBody");
+            tbody.querySelectorAll("tr").forEach(row => {{
+                if (row.classList.contains("raci-group-row")) return;
+                const count = raciStakeholders.length;
+                const existing = row.querySelectorAll(".raci-td-center");
+                const removeCell = row.querySelector(".raci-td-remove");
+                if (existing.length < count) {{
+                    for (let i = existing.length; i < count; i++) {{
+                        const td = document.createElement("td");
+                        td.className = "raci-td-center";
+                        td.appendChild(makeRaciSelect());
+                        row.insertBefore(td, removeCell);
+                    }}
+                }} else if (existing.length > count) {{
+                    Array.from(existing).slice(count).forEach(td => td.remove());
+                }}
+            }});
+        }}
+
+        function makeRaciSelect() {{
+            const sel = document.createElement("select");
+            sel.className = "raci-select";
+            buildRaciOptions(sel);
+            sel.addEventListener("change", () => {{
+                if (colorByRole) applyColorToCell(sel.closest("td"), sel.value);
+            }});
+            return sel;
+        }}
+
+        function makeMetaSelect(optValues, cssPrefix) {{
+            const sel = document.createElement("select");
+            sel.className = "raci-meta-select";
+            optValues.forEach(v => {{
+                const opt = document.createElement("option");
+                opt.value = v;
+                opt.textContent = v || "–";
+                sel.appendChild(opt);
+            }});
+            sel.addEventListener("change", () => {{
+                const td = sel.closest("td");
+                td.className = td.className.replace(/\s*raci-(pri|sta)-\S+/g, "").trim();
+                if (sel.value) td.classList.add(cssPrefix + sel.value.replace(/\s+/g, "-"));
+            }});
+            return sel;
+        }}
+
+        // ── Color by role ──
+        let colorByRole = false;
+
+        function toggleColorByRole() {{
+            colorByRole = !colorByRole;
+            document.getElementById("btnRaciColor").classList.toggle("active", colorByRole);
+            colorByRole ? applyRaciColors() : clearRaciColors();
+        }}
+
+        function applyColorToCell(td, value) {{
+            td.className = "raci-td-center";
+            if (value) td.classList.add("raci-color-" + value[0]);
+        }}
+
+        function applyRaciColors() {{
+            document.querySelectorAll("#raciBody .raci-td-center").forEach(td => {{
+                const sel = td.querySelector(".raci-select");
+                if (sel) applyColorToCell(td, sel.value);
+            }});
+        }}
+
+        function clearRaciColors() {{
+            document.querySelectorAll("#raciBody .raci-td-center").forEach(td => {{
+                td.className = "raci-td-center";
+            }});
+        }}
+
+        // ── Add activity row ──
+        function addRaciRow() {{
+            const tbody = document.getElementById("raciBody");
+            const tr = document.createElement("tr");
+            tr.draggable = true;
+            wireRowDrag(tr);
+
+            // Drag handle
+            const dragTd = document.createElement("td");
+            dragTd.className = "raci-td-drag";
+            dragTd.title = "Drag to reorder";
+            dragTd.textContent = "⠿";
+            tr.appendChild(dragTd);
+
+            // Priority
+            const priTd = document.createElement("td");
+            priTd.className = "raci-td-priority";
+            priTd.appendChild(makeMetaSelect(["", "Low", "Medium", "High"], "raci-pri-"));
+            tr.appendChild(priTd);
+
+            // Status
+            const staTd = document.createElement("td");
+            staTd.className = "raci-td-status";
+            staTd.appendChild(makeMetaSelect(["", "Not Started", "In Progress", "Needs Review", "Complete", "Approved"], "raci-sta-"));
+            tr.appendChild(staTd);
+
+            // Activity input
+            const actTd = document.createElement("td");
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "raci-activity-input";
+            input.placeholder = "Activity name…";
+            actTd.appendChild(input);
+            tr.appendChild(actTd);
+
+            // Stakeholder dropdowns
+            raciStakeholders.forEach(() => {{
+                const td = document.createElement("td");
+                td.className = "raci-td-center";
+                td.appendChild(makeRaciSelect());
+                tr.appendChild(td);
+            }});
+
+            // Remove button
+            const removeTd = document.createElement("td");
+            removeTd.className = "raci-td-remove";
+            const removeBtn = document.createElement("button");
+            removeBtn.type = "button";
+            removeBtn.className = "btn-raci-remove";
+            removeBtn.textContent = "✕";
+            removeBtn.onclick = () => tr.remove();
+            removeTd.appendChild(removeBtn);
+            tr.appendChild(removeTd);
+
+            tbody.appendChild(tr);
+            input.focus();
+        }}
+
+        // ── Add group row ──
+        function addRaciGroup() {{
+            const tbody = document.getElementById("raciBody");
+            const total = 4 + raciStakeholders.length + 1; // fixed + stakeholders + remove
+            const tr = document.createElement("tr");
+            tr.className = "raci-group-row";
+            tr.draggable = true;
+            wireRowDrag(tr);
+
+            const td = document.createElement("td");
+            td.colSpan = total;
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "raci-group-input";
+            input.placeholder = "Group name…";
+            td.appendChild(input);
+            tr.appendChild(td);
+
+            tbody.appendChild(tr);
+            input.focus();
+        }}
+
+        // ── Drag-to-reorder ──
+        let dragSrc = null;
+
+        function wireRowDrag(tr) {{
+            tr.addEventListener("dragstart", e => {{
+                dragSrc = tr;
+                tr.classList.add("dragging");
+                e.dataTransfer.effectAllowed = "move";
+            }});
+            tr.addEventListener("dragend", () => {{
+                dragSrc = null;
+                tr.classList.remove("dragging");
+                document.querySelectorAll("#raciBody tr").forEach(r => r.classList.remove("drag-over"));
+            }});
+            tr.addEventListener("dragover", e => {{
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                document.querySelectorAll("#raciBody tr").forEach(r => r.classList.remove("drag-over"));
+                if (tr !== dragSrc) tr.classList.add("drag-over");
+            }});
+            tr.addEventListener("drop", e => {{
+                e.preventDefault();
+                if (!dragSrc || dragSrc === tr) return;
+                const tbody = document.getElementById("raciBody");
+                const rows = Array.from(tbody.querySelectorAll("tr"));
+                const srcIdx = rows.indexOf(dragSrc);
+                const tgtIdx = rows.indexOf(tr);
+                tbody.insertBefore(dragSrc, srcIdx < tgtIdx ? tr.nextSibling : tr);
+                tr.classList.remove("drag-over");
+            }});
+        }}
+    </script>
+</body>
+</html>"""
+
+
+def main():
+    with open(INPUT_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    with open(MATRIX_TYPES_FILE, "r", encoding="utf-8") as f:
+        matrix_types = json.load(f)
+
+    fields = data.get("project_statement", {})
+    html = build_html(fields, matrix_types)
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    print(f"Generated: {OUTPUT_FILE}")
+
+
+if __name__ == "__main__":
+    main()
